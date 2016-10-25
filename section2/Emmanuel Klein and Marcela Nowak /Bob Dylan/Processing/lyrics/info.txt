@@ -1,0 +1,1 @@
+This is the processing sketch to generate lyrics for each album

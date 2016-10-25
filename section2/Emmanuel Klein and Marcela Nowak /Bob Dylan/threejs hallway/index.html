@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>three.js css3d - youtube</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			html, body {
+				height: 100%;
+				overflow: hidden;
+			}
+			#blocker {
+				position: absolute;
+				/* background-color: rgba(255, 0, 0, 0.5); */
+				top: 0px;
+				left: 0px;
+				width: 100%;
+				height: 100%;
+			}
+
+			.content {
+			  position: absolute;
+			  top: 0; bottom: 0; right: 0; left: 0;  /* follow the parent's edges */
+			  border: red;
+			  align:"center";
+			}
+		</style>
+	</head>
+	<body>
+		<script src="build/three.js"></script>
+		
+		<script src="js/renderers/CSS3DRenderer.js"></script>
+		<script src="js/controls/PointerLockControls.js"></script>
+
+
+		<div id="container"></div>
+		<div id="blocker"></div>
+
+		<script>
+
+			var camera, scene, renderer;
+
+			var controls, raycaster;
+
+			var controlsEnabled = false;
+
+			var moveForward = false;
+			var moveBackward = false;
+			var moveLeft = false;
+			var moveRight = false;
+			var canJump = false;
+
+			var prevTime = performance.now();
+			var velocity = new THREE.Vector3();
+
+			var element = document.body;
+
+			var factor=5;
+			var hallWidth =100*factor;
+			var hallHeight =100*factor;
+			var imageYearLength=200*factor*1;
+
+			var yearsHallway = 10;
+
+			var audio=[];
+
+			var currentSong;
+
+			for(i=1;i<=9;i++){
+				audio.push(new Audio('audio/' + i +'.mp3'));
+
+			}
+
+
+			 
+			
+
+
+			
+			var Wall = function ( id, x, y, z, ry ) {
+
+				var div = document.createElement( 'div' );
+				div.className = 'content';
+				div.style.width = imageYearLength +1 +'px'
+				div.style.height = hallHeight + 1 +'px';
+				div.style.backgroundColor = '#000';
+
+				var img = document.createElement("img");
+				img.src = "img/"+id;
+				img.style.width = '95%';
+				img.style.height = '100%';
+				div.appendChild(img);
+
+				var object = new THREE.CSS3DObject( div );
+				object.position.set( x, y, z );
+				object.rotation.y = ry;
+
+				return object;
+			};
+			var BlankWall = function ( x, y, z, ry ) {
+
+				var div = document.createElement( 'div' );
+				div.className = 'content';
+				div.style.width = imageYearLength +'px'
+				div.style.height = hallHeight + 'px';
+				div.style.backgroundColor = '#000';
+
+				
+
+				var object = new THREE.CSS3DObject( div );
+				object.position.set( x, y, z );
+				object.rotation.y = ry;
+
+				return object;
+			};
+			var Ceiling = function (z, index) {
+
+				var div = document.createElement( 'div' );
+				div.className = 'content';
+				div.style.width = imageYearLength +'px'
+				div.style.height = hallWidth + 'px';
+				div.style.backgroundColor = '#ddd';
+
+				// var img = document.createElement("img");
+				// img.src = "img/"+"ceiling.jpg";
+				// img.style.width = '100%';
+				// img.style.height = '100%';
+				// div.appendChild(img);
+
+
+				
+
+				var object = new THREE.CSS3DObject( div );
+				object.position.set( 0, hallHeight/2, z );
+
+				if(index%2==0){
+					object.rotation.x = Math.PI/2;
+					object.rotation.z = Math.PI/2;
+				}else{
+					object.rotation.x = Math.PI*3/2;
+					object.rotation.z = Math.PI/2;
+				}	
+
+				return object;
+			};
+			var Floor = function (z, index) {
+
+				var div = document.createElement( 'div' );
+				div.className = 'content';
+				div.style.width = imageYearLength +'px'
+				div.style.height = hallWidth + 'px';
+				div.style.backgroundColor = '#333';
+
+				var img = document.createElement("img");
+				img.src = "img/"+"floor.jpg";
+				img.style.width = '100%';
+				img.style.height = '100%';
+				div.appendChild(img);
+
+				var object = new THREE.CSS3DObject( div );
+				object.position.set( 0, -1*hallHeight/2, z );
+
+				if(index%2==0){
+					object.rotation.x = Math.PI/2;
+					object.rotation.z = Math.PI/2;
+				}else{
+					object.rotation.x = Math.PI*3/2;
+					object.rotation.z = Math.PI/2;
+				}	
+
+				return object;
+			};
+			var WallEnd = function ( z, link) {
+
+				var div = document.createElement( 'div' );
+				div.className = 'content';
+				div.style.width = hallWidth +'px'
+				div.style.height = hallHeight + 'px';
+				div.style.backgroundColor = '#000';
+
+				
+
+				// var img = document.createElement("img");
+				// img.src = "img/"+ link;
+				// img.style.width = '10%';
+				// img.style.height = '10%';
+
+				// div.appendChild(img);
+
+				var object = new THREE.CSS3DObject( div );
+				object.position.set( 0, 0, z );
+				//object.rotation.y = Math.PI/2;
+
+				return object;
+			};
+
+
+			init();
+			animate();
+
+			function init() {
+
+				var container = document.getElementById( 'container' );
+
+				camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 5000 );
+				//camera.position.set( 0, 0, 1000 );
+
+				scene = new THREE.Scene();
+
+				renderer = new THREE.CSS3DRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.domElement.style.position = 'absolute';
+				renderer.domElement.style.top = 0;
+				container.appendChild( renderer.domElement );
+
+				var group = new THREE.Group();
+
+				group.add( new Wall( 'hist_1.jpg', hallWidth/2, 0, imageYearLength*-1, Math.PI *3/2  ) );//right wall
+				group.add( new Wall( 'hist_2.jpg', hallWidth/2, 0, imageYearLength*-2, Math.PI *3/2  ) );
+				group.add( new Wall( 'hist_3.jpg', hallWidth/2, 0, imageYearLength*-3, Math.PI *3/2  ) );
+				group.add( new Wall( 'hist_4.jpg', hallWidth/2, 0, imageYearLength*-4, Math.PI *3/2  ) );
+				group.add( new Wall( 'hist_5.jpg', hallWidth/2, 0, imageYearLength*-5, Math.PI *3/2  ) );
+				group.add( new Wall( 'hist_6.jpg', hallWidth/2, 0, imageYearLength*-6, Math.PI *3/2  ) );
+				group.add( new Wall( 'hist_7.jpg', hallWidth/2, 0, imageYearLength*-7, Math.PI *3/2  ) );
+				group.add( new Wall( 'hist_8.jpg', hallWidth/2, 0, imageYearLength*-8, Math.PI *3/2  ) );
+				group.add( new Wall( 'hist_9.jpg', hallWidth/2, 0, imageYearLength*-9, Math.PI *3/2  ) );
+				// group.add( new Wall( 'njCDZWTI-xg', hallHeight/2, 0, imageYearLength*-3, Math.PI /2  ) );
+				// group.add( new Wall( 'njCDZWTI-xg', hallHeight/2, 0, imageYearLength*-4, Math.PI /2  ) );
+				// group.add( new Wall( 'njCDZWTI-xg', hallHeight/2, 0, imageYearLength*-5, Math.PI /2  ) );
+				// group.add( new Wall( 'njCDZWTI-xg', hallHeight/2, 0, imageYearLength*-6, Math.PI /2  ) );
+
+				group.add( new Wall( '1.jpeg', hallWidth/-2, 0, imageYearLength*-1, Math.PI /2  ) );//left wall
+				group.add( new Wall( '2.jpeg', hallWidth/-2, 0, imageYearLength*-2, Math.PI /2  ) );
+				group.add( new Wall( '3.jpeg', hallWidth/-2, 0, imageYearLength*-3, Math.PI /2  ) );
+				group.add( new Wall( '4.jpeg', hallWidth/-2, 0, imageYearLength*-4, Math.PI /2  ) );
+				group.add( new Wall( '5.jpeg', hallWidth/-2, 0, imageYearLength*-5, Math.PI /2  ) );
+				group.add( new Wall( '6.jpeg', hallWidth/-2, 0, imageYearLength*-6, Math.PI /2  ) );
+				group.add( new Wall( '7.jpeg', hallWidth/-2, 0, imageYearLength*-7, Math.PI /2  ) );
+				group.add( new Wall( '8.jpeg', hallWidth/-2, 0, imageYearLength*-8, Math.PI /2  ) );
+				group.add( new Wall( '9.jpeg', hallWidth/-2, 0, imageYearLength*-9, Math.PI /2  ) );
+				
+
+
+
+				
+				for(var i = 0; i<yearsHallway ; i++){
+					group.add( new Ceiling( imageYearLength*-1*i, i));
+					group.add( new Floor( imageYearLength*-1*i, i));
+				}
+
+				group.add( new WallEnd( imageYearLength*-1*(yearsHallway-.5), "bob_old.jpg"));
+
+
+				group.add( new BlankWall( hallHeight/2, 0, imageYearLength*0, Math.PI /2  ) );
+				group.add( new BlankWall( hallHeight/-2, 0, imageYearLength*0, Math.PI /2  ) );
+				group.add( new WallEnd( imageYearLength*-1*(0-.5), "bob_young.jpg"));
+
+				
+
+
+				// group.add( new Ceiling( imageYearLength*-2) );
+				// group.add( new Floor( imageYearLength*-2)i);
+				// group.add( new Ceiling( imageYearLength*-3) );
+				// group.add( new Floor( imageYearLength*-3) );
+				
+
+
+
+
+				
+
+				// group.add( new Element( 'HDh4uK9PvJU', 240, 0, 0, Math.PI / 2 ) );
+				// group.add( new Element( 'OX9I1KyNa8M', 0, 0, - 240, Math.PI ) );
+				// group.add( new Element( 'nhORZ6Ep_jE', - 240, 0, 0, - Math.PI / 2 ) );
+				scene.add( group );
+
+				controls = new THREE.PointerLockControls( camera );
+				scene.add( controls.getObject() );
+				controls.enabled = false;
+				//blocker.style.display = 'none';
+
+				//controls.rotateSpeed = 4;
+
+				var onKeyDown = function ( event ) {
+
+					switch ( event.keyCode ) {
+
+						case 38: // up
+						case 87: // w
+							moveForward = true;
+							break;
+
+						case 37: // left
+						case 65: // a
+							moveLeft = true; break;
+
+						case 40: // down
+						case 83: // s
+							moveBackward = true;
+							break;
+
+						case 39: // right
+						case 68: // d
+							moveRight = true;
+							break;
+
+						case 32: // space
+							if ( canJump === true ) velocity.y += 350;
+							canJump = false;
+							break;
+
+					}
+
+				};
+
+				var onKeyUp = function ( event ) {
+
+					switch( event.keyCode ) {
+
+						case 38: // up
+						case 87: // w
+							moveForward = false;
+							break;
+
+						case 37: // left
+						case 65: // a
+							moveLeft = false;
+							break;
+
+						case 40: // down
+						case 83: // s
+							moveBackward = false;
+							break;
+
+						case 39: // right
+						case 68: // d
+							moveRight = false;
+							break;
+
+					}
+
+				};
+
+				document.addEventListener( 'keydown', onKeyDown, false );
+				document.addEventListener( 'keyup', onKeyUp, false );
+				document.addEventListener( 'click', onClick, false );
+				
+
+				raycaster = new THREE.Raycaster( new THREE.Vector3(), new THREE.Vector3( 0, - 1, 0 ), 0, 10 );
+
+
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				// Block iframe events when dragging camera
+
+				var blocker = document.getElementById( 'blocker' );
+				//blocker.style.display = 'none';
+
+				document.addEventListener( 'mousedown', function () { blocker.style.display = ''; } );
+				document.addEventListener( 'mouseup', function () { blocker.style.display = 'none'; } );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+			function onClick(){
+				controls.enabled = !controls.enabled;
+
+				if ( /Firefox/i.test( navigator.userAgent ) ) {
+
+						var fullscreenchange = function ( event ) {
+
+							if ( document.fullscreenElement === element || document.mozFullscreenElement === element || document.mozFullScreenElement === element ) {
+
+								document.removeEventListener( 'fullscreenchange', fullscreenchange );
+								document.removeEventListener( 'mozfullscreenchange', fullscreenchange );
+
+								element.requestPointerLock();
+							}
+
+						};
+
+						document.addEventListener( 'fullscreenchange', fullscreenchange, false );
+						document.addEventListener( 'mozfullscreenchange', fullscreenchange, false );
+
+						element.requestFullscreen = element.requestFullscreen || element.mozRequestFullscreen || element.mozRequestFullScreen || element.webkitRequestFullscreen;
+
+						element.requestFullscreen();
+
+					} else {
+
+						element.requestPointerLock();
+
+					}
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+				if ( true ) { //controlsEnabled
+					raycaster.ray.origin.copy( controls.getObject().position );
+					raycaster.ray.origin.y -= 10;
+
+					//var intersections = raycaster.intersectObjects( objects );
+
+					//var isOnObject = intersections.length > 0;
+
+					var time = performance.now();
+					var delta = ( time - prevTime ) / 1000;
+
+					velocity.x -= velocity.x * 10.0 * delta;
+					velocity.z -= velocity.z * 10.0 * delta;
+
+
+
+
+
+					var audioToPlay=Math.floor(controls.getObject().position.z/imageYearLength*-1)%9;
+					if(audioToPlay<0)audioToPlay=0;
+
+
+					if(currentSong != audioToPlay){
+						// for(i=0; i<audio.imageYearLength;i++){
+						// 	audio[i].pause();
+						// }
+						if(currentSong != undefined)audio[currentSong].pause();
+						currentSong=audioToPlay;
+						console.log(audioToPlay);
+						audio[audioToPlay].play();
+					}
+
+
+
+
+					velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
+
+					if ( moveForward ) velocity.z -= imageYearLength*30 * delta;
+					if ( moveBackward ) velocity.z += imageYearLength * 30 * delta;
+
+					if ( moveLeft ) velocity.x -= imageYearLength*5 * delta;
+					if ( moveRight ) velocity.x += imageYearLength * 5 * delta;
+
+					controls.getObject().translateZ( velocity.z * delta );
+					controls.getObject().translateX( velocity.x * delta );
+
+					if ( controls.getObject().position.x > hallWidth/8 ) {//cant leave center of hall						
+						controls.getObject().position.x += (hallWidth/8-controls.getObject().position.x)*.1;
+					}else if (controls.getObject().position.x < -1*hallWidth/8) {
+						controls.getObject().position.x += (-1*hallWidth/8-controls.getObject().position.x)*.1;
+					}
+
+					if ( controls.getObject().position.z < (-1*yearsHallway+1)*imageYearLength) {//cant leave center of hall		
+						controls.getObject().position.z += (((-1*yearsHallway+1)*imageYearLength)-controls.getObject().position.z)*.1;
+					}else if (controls.getObject().position.z > 0) {
+						controls.getObject().position.z += (0-controls.getObject().position.z)*.1;
+					}
+
+
+
+					if ( controls.getObject().position.y < 10 ) {
+
+						velocity.y = 0;
+						controls.getObject().position.y = 10;
+
+						canJump = true;
+
+					}
+
+					prevTime = time;
+
+				}
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
+</html>

@@ -1,0 +1,2 @@
+This is the original sketch with all of Dylan’s lyrics displayed in a circle click on a word to see where else that word appears. hold down the mouse to morph the lyrics.
+This could be a cool music player with some work with this a a starting point
